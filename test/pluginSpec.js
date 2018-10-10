@@ -22,6 +22,7 @@ const {
 
 function createPlugin (opts = {}) {
   return new PluginXrpAsymServer(Object.assign({
+    assetScale: 9,
     prefix: 'test.example.',
     port: 3033,
     address: 'r9Ggkrw4VCfRzSqgrkJTeyfZvBvaG9z3hg',
@@ -41,7 +42,7 @@ function createPlugin (opts = {}) {
 describe('pluginSpec', () => {
   describe('constructor', function () {
     it('should throw if currencyScale is neither undefined nor a number', function () {
-      assert.throws(() => createPlugin({ currencyScale: 'oaimwdaiowdoamwdaoiw' }),
+      assert.throws(() => createPlugin({ assetScale: 'oaimwdaiowdoamwdaoiw' }),
         /currency scale must be a number if specified/)
     })
   })
@@ -157,7 +158,7 @@ describe('pluginSpec', () => {
       assert.equal(this.account.getOutgoingBalance().toString(), '0')
 
       await this.account.setClientChannel(this.channelId, { balance: '1' })
-      assert.equal(this.account.getOutgoingBalance().toString(), '1000000')
+      assert.equal(this.account.getOutgoingBalance().toString(), '1000000000')
     })
 
     it('should set outgoing balance if higher when connecting client channel', async function () {
@@ -170,7 +171,7 @@ describe('pluginSpec', () => {
 
       assert.equal(this.account.getOutgoingBalance().toString(), '0')
       await this.account._connectClientChannel()
-      assert.equal(this.account.getOutgoingBalance().toString(), '1000000')
+      assert.equal(this.account.getOutgoingBalance().toString(), '1000000000')
     })
 
     it('should not set outgoing balance if higher when connecting client channel', async function () {
@@ -181,18 +182,18 @@ describe('pluginSpec', () => {
           balance: '1'
         })
 
-      this.account.setOutgoingBalance('2000000')
-      assert.equal(this.account.getOutgoingBalance().toString(), '2000000')
+      this.account.setOutgoingBalance('2000000000')
+      assert.equal(this.account.getOutgoingBalance().toString(), '2000000000')
       await this.account._connectClientChannel()
-      assert.equal(this.account.getOutgoingBalance().toString(), '2000000')
+      assert.equal(this.account.getOutgoingBalance().toString(), '2000000000')
     })
 
     it('should not set outgoing balance to client channel balance if not higher', async function () {
-      this.account.setOutgoingBalance('2000000')
-      assert.equal(this.account.getOutgoingBalance().toString(), '2000000')
+      this.account.setOutgoingBalance('2000000000')
+      assert.equal(this.account.getOutgoingBalance().toString(), '2000000000')
 
       await this.account.setClientChannel(this.channelId, { balance: '1' })
-      assert.equal(this.account.getOutgoingBalance().toString(), '2000000')
+      assert.equal(this.account.getOutgoingBalance().toString(), '2000000000')
     })
   })
 
@@ -237,7 +238,7 @@ describe('pluginSpec', () => {
 
       const [ method, args ] = submitStub.firstCall.args
       assert.equal(method, 'preparePaymentChannelClaim')
-      assert.equal(args.balance, '0.001000')
+      assert.equal(args.balance, '0.000001')
       assert.equal(args.publicKey, 'EDD69138B8AB9B0471A734927FABE2B20D2943215C8EEEC61DC11598C79424414D')
       assert.equal(args.channel, this.channelId)
       assert.equal(args.close, true)
@@ -348,7 +349,7 @@ describe('pluginSpec', () => {
 
       this.plugin._store.setCache(this.account + ':channel', this.channelId)
       await this.plugin._connect(this.from, {})
-      assert.equal(this.plugin._channelToAccount.get(this.channelId).getLastClaimedAmount(), '50')
+      assert.equal(this.plugin._channelToAccount.get(this.channelId).getLastClaimedAmount(), '50000')
     })
 
     it('should delete persisted paychan if it does not exist on the ledger', async function () {
@@ -412,7 +413,7 @@ describe('pluginSpec', () => {
       this.account._state = ReadyState.READY
       this.plugin._store.setCache(this.account.getAccount() + ':channel', this.channelId)
       this.plugin._store.setCache(this.account.getAccount() + ':claim', {
-        amount: '12345',
+        amount: '12345000',
         signature: 'foo'
       })
       this.account._paychan = { publicKey: 'bar', balance: '0' }
@@ -431,7 +432,7 @@ describe('pluginSpec', () => {
     })
 
     it('should scale the claim amount appropriately', async function () {
-      this.plugin._currencyScale = 9
+      this.plugin._currencyScale = 12
       const stub = this.sinon.stub(this.plugin._txSubmitter, 'submit').resolves()
       await this.plugin._channelClaim(this.account)
       assert(stub.calledWithExactly('preparePaymentChannelClaim', {
@@ -540,7 +541,7 @@ describe('pluginSpec', () => {
       })
 
       it('should throw if the signature is for a higher amount than the channel max', function () {
-        this.claim.amount = 1000001
+        this.claim.amount = 1000000001
         // This stub works because require uses a cache
         this.sinon.stub(require('tweetnacl').sign.detached, 'verify')
           .returns(true)
@@ -715,9 +716,9 @@ describe('pluginSpec', () => {
           .returns(Promise.resolve())
 
         const initialOutgoingBalance = this.account.getOutgoingBalance()
-        this.plugin._sendMoneyToAccount(500000, this.from)
+        this.plugin._sendMoneyToAccount(500000000, this.from)
         assert.equal(this.account.getOutgoingBalance().toString(),
-          initialOutgoingBalance.plus(500000).toString())
+          initialOutgoingBalance.plus(500000000).toString())
 
         assert.isTrue(stub.calledWith({
           api: this.plugin._api,
@@ -733,8 +734,8 @@ describe('pluginSpec', () => {
           .returns(Promise.resolve())
 
         const initialOutgoingBalance = this.account.getOutgoingBalance()
-        assert.throws(() => this.plugin._sendMoneyToAccount(1000000, this.from),
-          /channel does not have enough capacity to process claim. claimAmount=1012345 clientPaychan.amount=1000000/)
+        assert.throws(() => this.plugin._sendMoneyToAccount(1000000000, this.from),
+          /channel does not have enough capacity to process claim. claimAmount=1000013 clientPaychan.amount=1000000/)
         assert.equal(this.account.getOutgoingBalance().toString(), initialOutgoingBalance.toString())
 
         assert.isTrue(stub.calledWith({
@@ -752,7 +753,7 @@ describe('pluginSpec', () => {
         sinon.stub(this.plugin._api, 'getPaymentChannel').resolves(expectedClientChan)
 
         // this will trigger a fund tx
-        this.plugin._sendMoneyToAccount(500000, this.from)
+        this.plugin._sendMoneyToAccount(500000000, this.from)
 
         // wait for the fund tx to be completed
         await new Promise((resolve, reject) => {
@@ -900,9 +901,9 @@ describe('pluginSpec', () => {
       this.account = await this.plugin._getAccount(this.from)
       this.account._state = ReadyState.READY
       this.plugin._store.setCache(this.account.getAccount() + ':channel', this.channelId)
-      this.plugin._store.setCache(this.account.getAccount() + ':last_claimed', '12300')
+      this.plugin._store.setCache(this.account.getAccount() + ':last_claimed', '12300000')
       this.plugin._store.setCache(this.account.getAccount() + ':claim', {
-        amount: '13901',
+        amount: '13901000',
         signature: 'foo'
       })
       this.account._paychan = {
@@ -1301,12 +1302,12 @@ describe('pluginSpec', () => {
         amount: '100',
         account: this.account.getAccount()
       }), {})
-      assert.deepEqual(sendStub.firstCall.args, [ '100000000', this.from ])
+      assert.deepEqual(sendStub.firstCall.args, [ '100000000000', this.from ])
       assert.deepEqual(callStub.firstCall.args, [
         'test.example.35YywQ-3GYiO3MM4tvfaSGhty9NZELIBO3kmilL0Wak',
         {
          data: {
-           amount: '100000000',
+           amount: '100000000000',
            protocolData: []
          },
          requestId: 12345,
